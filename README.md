@@ -1,14 +1,12 @@
 local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
-local RunService = game:GetService("RunService")
-local fakeMoney = 0
 
 -- GUI chính
 local gui = Instance.new("ScreenGui", lp:WaitForChild("PlayerGui"))
 gui.Name = "DupeProByChuong"
 gui.ResetOnSpawn = false
 
--- GUI khung chính
+-- Main Frame
 local frame = Instance.new("Frame", gui)
 frame.Size = UDim2.new(0, 250, 0, 160)
 frame.Position = UDim2.new(0.5, -125, 0.5, -80)
@@ -18,14 +16,16 @@ frame.AnchorPoint = Vector2.new(0.5, 0.5)
 frame.Active = true
 frame.Draggable = true
 frame.Name = "Main"
+frame.ClipsDescendants = true
 
 local uicorner = Instance.new("UICorner", frame)
 uicorner.CornerRadius = UDim.new(0, 12)
 
--- Background
+-- Nền background
 local bgImage = Instance.new("ImageLabel", frame)
 bgImage.Name = "Background"
 bgImage.Size = UDim2.new(1, 0, 1, 0)
+bgImage.Position = UDim2.new(0, 0, 0, 0)
 bgImage.Image = "rbxassetid://124570536149875"
 bgImage.BackgroundTransparency = 1
 bgImage.ImageTransparency = 0.4
@@ -41,7 +41,7 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 18
 title.ZIndex = 2
 
--- Load label
+-- Label loading
 local loadLabel = Instance.new("TextLabel", frame)
 loadLabel.Position = UDim2.new(0.1, 0, 0.3, 0)
 loadLabel.Size = UDim2.new(0.8, 0, 0, 30)
@@ -52,7 +52,7 @@ loadLabel.TextSize = 20
 loadLabel.Text = "Load: 0%"
 loadLabel.ZIndex = 2
 
--- Load Button
+-- Nút Load
 local loadBtn = Instance.new("TextButton", frame)
 loadBtn.Position = UDim2.new(0.1, 0, 0.6, 0)
 loadBtn.Size = UDim2.new(0.8, 0, 0, 30)
@@ -66,7 +66,22 @@ loadBtn.ZIndex = 2
 local uicornerBtn = Instance.new("UICorner", loadBtn)
 uicornerBtn.CornerRadius = UDim.new(1, 0)
 
--- Tiền ảo GUI góc phải
+-- Nút Toggle (Viên thuốc)
+local toggle = Instance.new("TextButton", frame)
+toggle.Position = UDim2.new(0.5, -40, 0.85, 0)
+toggle.Size = UDim2.new(0, 80, 0, 25)
+toggle.Text = "OFF"
+toggle.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggle.Font = Enum.Font.Gotham
+toggle.TextSize = 14
+toggle.Visible = false
+toggle.ZIndex = 2
+
+local uicornerToggle = Instance.new("UICorner", toggle)
+uicornerToggle.CornerRadius = UDim.new(1, 0)
+
+-- Label Tiền Ảo ở góc
 local moneyGui = Instance.new("TextLabel", gui)
 moneyGui.Size = UDim2.new(0, 160, 0, 40)
 moneyGui.Position = UDim2.new(1, -170, 0, 20)
@@ -80,55 +95,11 @@ moneyGui.Name = "FakeMoney"
 
 -- Trạng thái
 local loaded = false
-local dupeLoop = nil
-local inSellZone = false
-local lastSell = 0
+local toggled = false
+local dupeLoop
+local fakeMoney = 0
 
--- SellZone detector (phát hiện gần vùng bán)
-local function isNearSellZone()
-	local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-	if not hrp then return false end
-
-	-- Tìm part có tên kiểu "Sell" hoặc "SellArea"
-	for _, v in pairs(workspace:GetDescendants()) do
-		if v:IsA("BasePart") and v.Name:lower():find("sell") then
-			if (v.Position - hrp.Position).Magnitude <= 10 then
-				return true
-			end
-		end
-	end
-	return false
-end
-
--- Auto SELL Loop
-local function startSelling()
-	if dupeLoop then return end
-	dupeLoop = RunService.Heartbeat:Connect(function()
-		if not loaded then return end
-
-		if isNearSellZone() then
-			if tick() - lastSell >= 0.15 then
-				lastSell = tick()
-				local char = lp.Character
-				if char then
-					local tool = char:FindFirstChildOfClass("Tool")
-					if tool then
-						local clone = tool:Clone()
-						clone.Parent = lp.Backpack
-					end
-				end
-
-				-- Tăng tiền ảo
-				local plus = math.random(50, 120)
-				fakeMoney += plus
-				moneyGui.Text = "$" .. tostring(fakeMoney)
-				loadLabel.Text = "Đã bán: +$" .. plus
-			end
-		end
-	end)
-end
-
--- Load nút
+-- Khi bấm nút load
 loadBtn.MouseButton1Click:Connect(function()
 	if loaded then return end
 	loaded = true
@@ -136,10 +107,45 @@ loadBtn.MouseButton1Click:Connect(function()
 
 	for i = 1, 100 do
 		loadLabel.Text = "Load: " .. i .. "%"
-		wait(0.02)
+		wait(0.03)
 	end
 
 	loadBtn.Text = "Loaded!"
-	loadLabel.Text = "Đi đến chỗ SELL để bán!"
-	startSelling()
+	toggle.Visible = true
+end)
+
+-- Toggle Dupe + Bán Ảo
+toggle.MouseButton1Click:Connect(function()
+	toggled = not toggled
+	toggle.Text = toggled and "ON" or "OFF"
+	toggle.BackgroundColor3 = toggled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(120, 0, 0)
+
+	if toggled then
+		dupeLoop = task.spawn(function()
+			while toggled do
+				local char = lp.Character
+				if char then
+					local tool = char:FindFirstChildOfClass("Tool")
+					if tool then
+						-- Clone tool
+						local clone = tool:Clone()
+						clone.Parent = lp.Backpack
+
+						-- Giả lập bán
+						local plus = math.random(50, 100)
+						fakeMoney += plus
+						moneyGui.Text = "$" .. fakeMoney
+
+						-- Hiệu ứng rung nhỏ (tuỳ chọn)
+						moneyGui.Position = UDim2.new(1, -170 + math.random(-2, 2), 0, 20 + math.random(-1, 1))
+					end
+				end
+				wait(0.1)
+			end
+		end)
+	else
+		if dupeLoop then
+			task.cancel(dupeLoop)
+		end
+	end
 end)
